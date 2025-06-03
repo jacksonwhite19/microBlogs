@@ -6,3 +6,6 @@ This is my post content.
 Another Post
 More content here.
 testing testing hey
+---
+Next test
+testing again
