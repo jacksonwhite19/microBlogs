@@ -1,108 +1,74 @@
-const fs = require('fs');
-const puppeteer = require('puppeteer');
+const puppeteer = require("puppeteer");
+const fs = require("fs");
+const path = require("path");
 
-const JOURNAL_PATH = 'journal.txt';
-const LOG_PATH = 'posted.json';
+const EMAIL = process.env.BEAR_EMAIL;
+const PASSWORD = process.env.BEAR_PASSWORD;
 
-function loadJournalEntries() {
-  const content = fs.readFileSync(JOURNAL_PATH, 'utf-8');
-  return content.split('\n---\n').map(entry => entry.trim()).filter(Boolean);
-}
-
-function loadPostedLog() {
-  try {
-    return JSON.parse(fs.readFileSync(LOG_PATH));
-  } catch (e) {
-    return [];
-  }
-}
-
-function savePostedLog(posted) {
-  fs.writeFileSync(LOG_PATH, JSON.stringify(posted, null, 2));
-}
-
-async function loginToBear(page, email, password) {
-  await page.goto('https://bearblog.dev/login/', { waitUntil: 'networkidle2' });
-  await page.type('input[name=email]', email);
-  await page.type('input[name=password]', password);
-  await Promise.all([
-    page.click('button[type=submit]'),
-    page.waitForNavigation({ waitUntil: 'networkidle2' }),
-  ]);
-  console.log('✅ Logged in');
-}
-
-async function postEntry(page, content) {
-  await page.goto('https://bearblog.dev/new/', { waitUntil: 'networkidle2' });
-
-  const lines = content.split('\n');
-  const title = lines[0].trim();
-  const body = lines.slice(1).join('\n').trim();
-
-  await page.type('input[name=title]', title);
-  await page.type('textarea[name=body]', body);
-
-  // Uncheck 'Listed' checkbox
-  const checkbox = await page.$('input[name="listed"]');
-  if (checkbox) {
-    const isChecked = await (await checkbox.getProperty('checked')).jsonValue();
-    if (isChecked) {
-      await checkbox.click(); // unlist it
-    }
-  }
-
-  await Promise.all([
-    page.click('button[type=submit]'),
-    page.waitForNavigation({ waitUntil: 'networkidle2' }),
-  ]);
-
-  const postUrl = page.url();
-  console.log(`✅ Posted: ${title} → ${postUrl}`);
-  return { title, url: postUrl };
-}
-
-async function updateMicroBlogPage(page, newLinkHtml) {
-  const microBlogUrl = 'https://bearblog.dev/edit/micro-blog/';
-  await page.goto(microBlogUrl, { waitUntil: 'networkidle2' });
-
-  const bodyHandle = await page.$('textarea[name=body]');
-  const oldContent = await (await bodyHandle.getProperty('value')).jsonValue();
-
-  const newContent = `${newLinkHtml}\n\n${oldContent}`;
-  await page.evaluate((content) => {
-    document.querySelector('textarea[name=body]').value = content;
-  }, newContent);
-
-  await Promise.all([
-    page.click('button[type=submit]'),
-    page.waitForNavigation({ waitUntil: 'networkidle2' }),
-  ]);
-
-  console.log('✅ micro-blog page updated.');
-}
+const JOURNAL_PATH = "journal.txt";
+const POSTED_PATH = "posted.json";
+const MICROBLOG_PATH = "micro-blog.html";
 
 (async () => {
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+  });
+
   const page = await browser.newPage();
+  await page.goto("https://bearblog.dev/login");
 
-  const email = process.env.BEAR_EMAIL;
-  const password = process.env.BEAR_PASSWORD;
+  // Login
+  await page.type("input[name=email]", EMAIL);
+  await page.type("input[name=password]", PASSWORD);
+  await Promise.all([
+    page.click("button[type=submit]"),
+    page.waitForNavigation()
+  ]);
 
-  await loginToBear(page, email, password);
+  console.log("✅ Logged in to Bear Blog");
 
-  const entries = loadJournalEntries();
-  const posted = loadPostedLog();
+  // Load posted.json
+  const posted = fs.existsSync(POSTED_PATH)
+    ? JSON.parse(fs.readFileSync(POSTED_PATH, "utf-8"))
+    : [];
 
-  for (const entry of entries) {
-    if (!posted.includes(entry)) {
-      const { title, url } = await postEntry(page, entry);
-      posted.push(entry);
+  // Load journal
+  const journal = fs.readFileSync(JOURNAL_PATH, "utf-8");
+  const entries = journal.split("---").map(e => e.trim()).filter(Boolean);
 
-      const newLink = `- [${title}](${url})`;
-      await updateMicroBlogPage(page, newLink);
-    }
+  const newEntries = entries.filter(entry => !posted.includes(entry));
+
+  console.log(`📝 Found ${newEntries.length} new post(s)`);
+
+  for (const entry of newEntries) {
+    const [titleLine, ...bodyLines] = entry.split("\n");
+    const title = titleLine.trim();
+    const body = bodyLines.join("\n").trim();
+
+    await page.goto("https://bearblog.dev/dashboard/new/");
+    await page.type("input[name=title]", title);
+    await page.type("textarea[name=body]", body);
+
+    // Set post as unlisted so it doesn't flood your main blog
+    const unlistedCheckbox = await page.$('input[name="listed"]');
+    if (unlistedCheckbox) await unlistedCheckbox.click();
+
+    await Promise.all([
+      page.click("button[type=submit]"),
+      page.waitForNavigation()
+    ]);
+
+    const url = page.url();
+    console.log(`✅ Posted: ${title} → ${url}`);
+
+    // Append to /micro-blog/ if needed
+    const linkHTML = `• <a href="${url}" target="_blank">${title}</a><br>\n`;
+    fs.appendFileSync(MICROBLOG_PATH, linkHTML);
+
+    posted.push(entry);
+    fs.writeFileSync(POSTED_PATH, JSON.stringify(posted, null, 2));
   }
 
-  savePostedLog(posted);
   await browser.close();
 })();
