@@ -21,7 +21,7 @@ jobs:
         run: npm install
 
       - name: Post to Bear Blog
-        run: node scripts/post-to-bear.js
+        run: node post.js
         env:
           BEAR_EMAIL: ${{ secrets.BEAR_EMAIL }}
           BEAR_PASSWORD: ${{ secrets.BEAR_PASSWORD }}
