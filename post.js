@@ -2,7 +2,7 @@ const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
 
-const EMAIL = process.env.BEAR_EMAIL;
+const EMAIL = process.env.BEAR_USERNAME;
 const PASSWORD = process.env.BEAR_PASSWORD;
 
 const JOURNAL_PATH = "journal.txt";
