@@ -16,14 +16,20 @@ const MICROBLOG_PATH = "micro-blog.html";
   });
 
   const page = await browser.newPage();
-  await page.goto("https://bearblog.dev/accounts/login/?next=/jacksonwhite/dashboard/pages/");
+  await page.goto("https://bearblog.dev/accounts/login/?next=/jacksonwhite/dashboard/pages/", {
+    waitUntil: "networkidle2"
+  });
 
-  // Login
-  await page.type("input[name=email]", EMAIL);
+  // Login - updated selectors
+  await page.waitForSelector("input[name=login]");
+  await page.type("input[name=login]", EMAIL);
+
+  await page.waitForSelector("input[name=password]");
   await page.type("input[name=password]", PASSWORD);
+
   await Promise.all([
     page.click("button[type=submit]"),
-    page.waitForNavigation()
+    page.waitForNavigation({ waitUntil: "networkidle2" })
   ]);
 
   console.log("✅ Logged in to Bear Blog");
@@ -46,8 +52,14 @@ const MICROBLOG_PATH = "micro-blog.html";
     const title = titleLine.trim();
     const body = bodyLines.join("\n").trim();
 
-    await page.goto("https://bearblog.dev/dashboard/new/");
+    await page.goto("https://bearblog.dev/dashboard/new/", {
+      waitUntil: "networkidle2"
+    });
+
+    await page.waitForSelector("input[name=title]");
     await page.type("input[name=title]", title);
+
+    await page.waitForSelector("textarea[name=body]");
     await page.type("textarea[name=body]", body);
 
     // Set post as unlisted so it doesn't flood your main blog
@@ -56,7 +68,7 @@ const MICROBLOG_PATH = "micro-blog.html";
 
     await Promise.all([
       page.click("button[type=submit]"),
-      page.waitForNavigation()
+      page.waitForNavigation({ waitUntil: "networkidle2" })
     ]);
 
     const url = page.url();
