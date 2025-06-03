@@ -1,13 +1,18 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
-const path = require("path");
 
-const EMAIL = process.env.BEAR_USERNAME;
+const USERNAME = process.env.BEAR_USERNAME;
 const PASSWORD = process.env.BEAR_PASSWORD;
 
 const JOURNAL_PATH = "journal.txt";
 const POSTED_PATH = "posted.json";
 const MICROBLOG_PATH = "micro-blog.html";
+
+// Fail early if credentials aren't set
+if (!USERNAME || !PASSWORD) {
+  console.error("❌ Missing BEAR_USERNAME or BEAR_PASSWORD");
+  process.exit(1);
+}
 
 (async () => {
   const browser = await puppeteer.launch({
@@ -23,7 +28,7 @@ const MICROBLOG_PATH = "micro-blog.html";
     });
 
     await page.waitForSelector("#id_login", { timeout: 10000 });
-    await page.type("#id_login", EMAIL);
+    await page.type("#id_login", USERNAME);
 
     await page.waitForSelector("#id_password", { timeout: 10000 });
     await page.type("#id_password", PASSWORD);
@@ -35,7 +40,7 @@ const MICROBLOG_PATH = "micro-blog.html";
 
     console.log("✅ Logged in to Bear Blog");
   } catch (err) {
-    console.error("❌ Login failed");
+    console.error("❌ Login failed:", err);
     await page.screenshot({ path: "debug.png" });
     fs.writeFileSync("debug.html", await page.content());
     await browser.close();
