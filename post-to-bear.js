@@ -1,50 +1,81 @@
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 
-const EMAIL = process.env.BEAR_EMAIL;
-const PASSWORD = process.env.BEAR_PASSWORD;
+const journalPath = 'journal.txt';
+const postedPath = 'posted.json';
+
+async function readJournal() {
+  const raw = fs.readFileSync(journalPath, 'utf-8');
+  return raw
+    .split('---')
+    .map(entry => entry.trim())
+    .filter(entry => entry.length > 0);
+}
+
+function readPosted() {
+  if (!fs.existsSync(postedPath)) return [];
+  return JSON.parse(fs.readFileSync(postedPath, 'utf-8'));
+}
+
+function savePosted(posted) {
+  fs.writeFileSync(postedPath, JSON.stringify(posted, null, 2));
+}
+
+async function login(page) {
+  const email = process.env.BEAR_EMAIL;
+  const password = process.env.BEAR_PASSWORD;
+
+  await page.goto('https://bearblog.dev/login/', { waitUntil: 'networkidle2' });
+  await page.type('input[name=email]', email);
+  await page.type('input[name=password]', password);
+  await Promise.all([
+    page.click('button[type=submit]'),
+    page.waitForNavigation({ waitUntil: 'networkidle2' }),
+  ]);
+}
+
+async function postEntry(page, content) {
+  await page.goto('https://bearblog.dev/new/', { waitUntil: 'networkidle2' });
+
+  // Simple title: first line
+  const lines = content.split('\n');
+  const title = lines[0].trim();
+  const body = lines.slice(1).join('\n').trim();
+
+  await page.type('input[name=title]', title);
+  await page.type('textarea[name=body]', body);
+  await Promise.all([
+    page.click('button[type=submit]'),
+    page.waitForNavigation({ waitUntil: 'networkidle2' }),
+  ]);
+}
 
 (async () => {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-  const page = await browser.newPage();
+  const entries = await readJournal();
+  const posted = readPosted();
 
-  await page.goto('https://bearblog.dev/login');
-  await page.type('input[type="email"]', EMAIL);
-  await page.type('input[type="password"]', PASSWORD);
-  await Promise.all([
-    page.click('button[type="submit"]'),
-    page.waitForNavigation(),
-  ]);
+  const toPost = entries.filter(e => !posted.includes(e));
 
-  const journal = fs.readFileSync('journal.txt', 'utf-8');
-  const posted = JSON.parse(fs.readFileSync('posted.json', 'utf-8'));
-
-  const posts = journal.split('---').map(p => p.trim()).filter(Boolean);
-  const newPosts = posts.filter(p => {
-    const title = p.split('\n')[0].trim();
-    return !posted.includes(title);
-  });
-
-  for (const post of newPosts) {
-    const lines = post.split('\n');
-    const title = lines[0].trim();
-    const body = lines.slice(1).join('\n').trim();
-
-    await page.goto('https://bearblog.dev/new');
-    await page.type('input[name="title"]', title);
-    await page.type('textarea[name="body"]', body);
-    await Promise.all([
-      page.click('button[type="submit"]'),
-      page.waitForNavigation(),
-    ]);
-
-    posted.push(title);
-    console.log(`Posted: ${title}`);
+  if (toPost.length === 0) {
+    console.log('No new entries to post.');
+    process.exit(0);
   }
 
-  fs.writeFileSync('posted.json', JSON.stringify(posted, null, 2));
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+
+  await login(page);
+
+  for (const entry of toPost) {
+    try {
+      console.log('Posting:', entry.split('\n')[0]);
+      await postEntry(page, entry);
+      posted.push(entry);
+      savePosted(posted);
+    } catch (err) {
+      console.error('Failed to post entry:', err);
+    }
+  }
+
   await browser.close();
 })();
