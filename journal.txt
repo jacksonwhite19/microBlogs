@@ -1,0 +1,7 @@
+---
+Title of Blog Post
+This is my post content.
+
+---
+Another Post
+More content here.
