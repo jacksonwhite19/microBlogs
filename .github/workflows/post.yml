@@ -1,27 +1,28 @@
-name: Publish to Bear Blog
+name: Auto-post to Bear Blog
 
 on:
   push:
-    branches:
-      - main
+    paths:
+      - journal.txt
 
 jobs:
-  publish:
+  post:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: 20
 
       - name: Install dependencies
-        run: npm install puppeteer
+        run: npm install
 
-      - name: Run posting script
+      - name: Post to Bear Blog
+        run: node scripts/post-to-bear.js
         env:
           BEAR_EMAIL: ${{ secrets.BEAR_EMAIL }}
           BEAR_PASSWORD: ${{ secrets.BEAR_PASSWORD }}
-        run: node post-to-bear.js
+          BEAR_URL: ${{ secrets.BEAR_URL }}
