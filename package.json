@@ -1,1 +1,8 @@
-
+{
+  "name": "bearblog-auto",
+  "version": "1.0.0",
+  "main": "scripts/post-to-bear.js",
+  "dependencies": {
+    "puppeteer": "^21.3.8"
+  }
+}
