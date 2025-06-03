@@ -16,23 +16,31 @@ const MICROBLOG_PATH = "micro-blog.html";
   });
 
   const page = await browser.newPage();
-  await page.goto("https://bearblog.dev/accounts/login/?next=/jacksonwhite/dashboard/pages/", {
-    waitUntil: "networkidle2"
-  });
 
-  // Login - updated selectors
-  await page.waitForSelector("input[name=login]");
-  await page.type("input[name=login]", EMAIL);
+  try {
+    await page.goto("https://bearblog.dev/accounts/login/?next=/jacksonwhite/dashboard/pages/", {
+      waitUntil: "networkidle2"
+    });
 
-  await page.waitForSelector("input[name=password]");
-  await page.type("input[name=password]", PASSWORD);
+    await page.waitForSelector("#id_login", { timeout: 10000 });
+    await page.type("#id_login", EMAIL);
 
-  await Promise.all([
-    page.click("button[type=submit]"),
-    page.waitForNavigation({ waitUntil: "networkidle2" })
-  ]);
+    await page.waitForSelector("#id_password", { timeout: 10000 });
+    await page.type("#id_password", PASSWORD);
 
-  console.log("✅ Logged in to Bear Blog");
+    await Promise.all([
+      page.click("button[type=submit]"),
+      page.waitForNavigation({ waitUntil: "networkidle2" })
+    ]);
+
+    console.log("✅ Logged in to Bear Blog");
+  } catch (err) {
+    console.error("❌ Login failed");
+    await page.screenshot({ path: "debug.png" });
+    fs.writeFileSync("debug.html", await page.content());
+    await browser.close();
+    process.exit(1);
+  }
 
   // Load posted.json
   const posted = fs.existsSync(POSTED_PATH)
@@ -44,7 +52,6 @@ const MICROBLOG_PATH = "micro-blog.html";
   const entries = journal.split("---").map(e => e.trim()).filter(Boolean);
 
   const newEntries = entries.filter(entry => !posted.includes(entry));
-
   console.log(`📝 Found ${newEntries.length} new post(s)`);
 
   for (const entry of newEntries) {
@@ -62,7 +69,6 @@ const MICROBLOG_PATH = "micro-blog.html";
     await page.waitForSelector("textarea[name=body]");
     await page.type("textarea[name=body]", body);
 
-    // Set post as unlisted so it doesn't flood your main blog
     const unlistedCheckbox = await page.$('input[name="listed"]');
     if (unlistedCheckbox) await unlistedCheckbox.click();
 
@@ -74,7 +80,6 @@ const MICROBLOG_PATH = "micro-blog.html";
     const url = page.url();
     console.log(`✅ Posted: ${title} → ${url}`);
 
-    // Append to /micro-blog/ if needed
     const linkHTML = `• <a href="${url}" target="_blank">${title}</a><br>\n`;
     fs.appendFileSync(MICROBLOG_PATH, linkHTML);
 
