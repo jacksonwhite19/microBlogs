@@ -1,0 +1,16 @@
+{
+  "name": "bear-blog-automation",
+  "version": "1.0.0",
+  "description": "Automated posting to Bear Blog from journal.txt",
+  "main": "scripts/post-to-bear.js",
+  "scripts": {
+    "post": "node scripts/post-to-bear.js",
+    "test": "node scripts/parse-journal.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  },
+  "keywords": ["bear-blog", "automation", "blogging"],
+  "author": "Your Name",
+  "license": "MIT"
+}

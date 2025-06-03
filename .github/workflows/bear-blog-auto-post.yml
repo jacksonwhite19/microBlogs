@@ -1,0 +1,64 @@
+name: Auto Post to Bear Blog
+
+# Trigger when journal.txt is updated
+on:
+  push:
+    branches: [ main, master ]
+    paths: [ 'journal.txt' ]
+  
+  # Also allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  post-to-bear-blog:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # Get full history so we can track what's been posted
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm install
+        # Install Puppeteer with explicit Chrome download
+        npx puppeteer browsers install chrome
+    
+    - name: Check for new entries
+      run: |
+        echo "Checking for new journal entries..."
+        node scripts/parse-journal.js
+    
+    - name: Post new entries to Bear Blog
+      run: |
+        echo "Posting new entries to Bear Blog..."
+        node scripts/post-to-bear.js
+      env:
+        BEAR_USERNAME: ${{ secrets.BEAR_USERNAME }}
+        BEAR_PASSWORD: ${{ secrets.BEAR_PASSWORD }}
+    
+    - name: Commit updated posted log
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Add the posted-entries.log file if it was updated
+        if [ -f "posted-entries.log" ]; then
+          git add posted-entries.log
+          
+          # Only commit if there are changes
+          if ! git diff --staged --quiet; then
+            git commit -m "Update posted entries log [skip ci]"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+        fi
