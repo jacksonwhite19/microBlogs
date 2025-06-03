@@ -16,7 +16,7 @@ const MICROBLOG_PATH = "micro-blog.html";
   });
 
   const page = await browser.newPage();
-  await page.goto("https://bearblog.dev/login");
+  await page.goto("https://bearblog.dev/accounts/login/?next=/jacksonwhite/dashboard/pages/");
 
   // Login
   await page.type("input[name=email]", EMAIL);
