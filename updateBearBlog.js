@@ -2,8 +2,8 @@ const fs = require('fs');
 const puppeteer = require('puppeteer');
 
 (async () => {
-  const BBE_EMAIL = 'jacksonwhite19@icloud.com';
-  const BBE_PASS = 'Bear1647!';
+  const BBE_EMAIL = 'INPUT YOUR EMAIL HERE';
+  const BBE_PASS = 'INPUT YOUR PASSWORD HERE';
 
   let content;
   try {
